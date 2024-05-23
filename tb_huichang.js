@@ -1,4 +1,4 @@
-const VERSION = '20231111-AD'
+const VERSION = '20240618-B'
 
 if (!auto.service) {
     toast('无障碍服务未启动！退出！')
@@ -52,7 +52,7 @@ if (autoMute) {
         device.setMusicVolume(0)
         toast('成功设置媒体音量为0')
     } catch (err) {
-        alert('首先需要开启权限，请开启后再次运行脚本')
+        alert('首先需要开启权限以修改音量，请开启后再次运行脚本')
         exit()
     }
 }
@@ -114,11 +114,34 @@ try {
         return null
     }
 
+    // 判断是否在活动主页
+    // let checkIndex = className("android.webkit.WebView").filter(function (w) {
+    //     try {
+    //         let tmp = w.child(0)
+    //         let btn = tmp.child(tmp.childCount() - 1)
+    //         if (btn.className() == 'android.view.View') {
+    //             btn = tmp.child(tmp.childCount() - 2)
+    //         }
+    //         return btn.clickable() && btn.className() == 'android.widget.TextView' && !textContains('精选热卖').exists()
+    //     } catch (e) {
+    //         return false
+    //     }
+    // })
+
+    let checkIndex = textContains('O1CN013Lp0e21GnX8El4YEd')
+    
     // 打开任务列表
     function openTaskList() {
-        let c = idMatches(/node_\d_icon/).findOne(5000)
+        let c = checkIndex.findOne(5000)
         if (c) {
             console.log('使用默认方法尝试打开任务列表')
+            // c = c.child(0)
+            // let btn = c.child(c.childCount() - 1)
+            // if (btn.className() == 'android.view.View') {
+            //     btn = c.child(c.childCount() - 2)
+            // }
+            // btn.click()
+
             c.click()
         } else {
             throw '无法找到任务列表入口'
@@ -127,36 +150,12 @@ try {
             console.log('关闭弹窗')
             idContains('CLOSE').findOnce().click()
             sleep(1000)
-            c.click()
+            let btn = c.child(c.childCount() - 1)
+            if (btn.className() == 'android.view.View') {
+                btn = c.child(c.childCount() - 2)
+            }
+            btn.click()
         }
-        // if (!textContains('累计任务奖励').findOne(8000)) {
-        //     console.log('默认方式打开失败，二次尝试')
-        //     console.log('首先检测弹窗')
-        //     try {
-        //         let anchor = textContains('O1CN010Zax611FU0Z5m6nnQ').findOne(5000)
-        //         anchor.parent().click()
-        //         sleep(2000)
-        //         console.log('领红包弹窗已关闭')
-        //     } catch (err) {
-        //         console.log(err)
-        //         console.log('领红包弹窗关闭失败。此问题不影响运行')
-        //     }
-        //     try {
-        //         idContains('CLOSE').findOne(2000).click()
-        //         sleep(1000)
-        //     } catch (err) {
-        //         console.log(err)
-        //         console.log('其他弹窗关闭失败。此问题不影响运行')
-        //     }
-        //     console.log('出现未能自动关闭的弹窗请手动关闭')
-        //     sleep(2000)
-        //     // let right = c.bounds().right
-        //     // let left = c.bounds().left
-        //     // let top = c.bounds().top
-        //     // let bottom = c.bounds().bottom
-        //     // click(random(right,left), random(top, bottom))
-        //     click(c.bounds().centerX(), c.bounds().centerY())
-        //     console.log('已点击，等待任务列表出现')
         if (!textContains('累计任务奖励').findOne(8000)) {
             throw '无法打开任务列表'
         }
@@ -190,7 +189,7 @@ try {
                 //     return findTask()
                 // }
                 console.log(taskName)
-                if (!(taskName.match(/天猫超市|下单|施肥/))) {
+                if (!(taskName.match(/天猫超市|下单|施肥|饿了么/))) {
                     return [taskName, jumpButtons[i]]
                 }
             }
@@ -280,7 +279,7 @@ try {
                 console.log(buttons.length)
             }
     
-            for (let i = 0; i < buttons.length; i++) {
+            for (let i = 1; i < buttons.length; i++) {
                 console.log('点击第', i + 1, '个')
                 sleep(2000)
                 buttons[i].click()
@@ -293,7 +292,12 @@ try {
                         back()
                     }
                 } else {
-                    throw '商品页未能加载'
+                    if (textContains('精选热卖').findOne(2000)) {
+                        console.log('似乎没有进入，二次尝试')
+                        continue
+                    } else {
+                        throw '商品页未能加载'
+                    }
                 }
                 n++
                 done = idContains('J_wf_node_2_time').findOne(5000)
@@ -308,13 +312,13 @@ try {
     // TODO:
     function backToList() {
         console.log('返回上级')
-        if (idMatches(/node_\d_icon/).exists()) {
+        if (checkIndex.exists()) {
             console.log('已在任务列表')
             return
         }
         back()
         for (let i = 0; i < 3; i++) {
-            if (!idMatches(/node_\d_icon/).findOne(5000)) {
+            if (!checkIndex.findOne(5000)) {
                 console.log('似乎没有返回，二次尝试')
                 back()
             } else {
@@ -330,15 +334,15 @@ try {
 
         app.startActivity({
             action: "VIEW",
-            data: "taobao://s.click.taobao.com/7qinv6u"
+            data: "taobao://s.click.taobao.com/KDTtXmt"
         })
         sleep(2000)
 
         console.log('等待页面加载...')
     } else {
-        console.log('请在30秒内打开淘宝做任务赢红包活动页 88￥ CZ3457 yRhaW1EFDJB￥ https://m.tb.cn/h.5SjTGhB')
+        console.log('请在30秒内打开淘宝做任务赢红包活动页 19￥ HU9046 42qBWvBotkr￥')
     }
-    if (!idMatches(/node_\d_icon/).findOne(30000)) {
+    if (!checkIndex.findOne(30000)) {
         console.log('未能检测到任务页，退出')
         quit()
     }
@@ -348,11 +352,15 @@ try {
 
     console.log('首先关闭弹窗')
     try {
-        let anchor = idContains('J_wfdlgwrap_6').findOne(5000)
+        let anchor = text('玩法规则').findOne(5000)
         if (anchor) {
+            anchor = anchor.parent().parent()
+            anchor = anchor.child(anchor.childCount() - 2)
             click(anchor.bounds().centerX(), anchor.bounds().centerY())
             sleep(2000)
             console.log('领红包弹窗已关闭')
+        } else {
+            console.log('未找到领红包弹窗')
         }
     } catch (err) {
         console.log(err)
@@ -422,10 +430,10 @@ try {
         } else if (jumpButton[0].match(/为你推荐|主会场/)) {
             jumpButton[1].click()
             liulan()
-        } else if (jumpButton[0].match(/消消乐|羊毛|淘金币/)) {
+        } else if (jumpButton[0].match(/消消乐|羊毛|新形象/)) {
             jumpButton[1].click()
             console.log('参观任务，自动返回')
-            sleep(2000)
+            sleep(5000)
             backToList()
         } else {
             jumpButton[1].click()
