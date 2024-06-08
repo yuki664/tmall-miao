@@ -1,4 +1,4 @@
-const VERSION = '2023618-O'
+const VERSION = '20240618-K'
 
 if (!auto.service) {
     toast('无障碍服务未启动！退出！')
@@ -90,7 +90,7 @@ function registerKey() {
     events.onKeyDown('volume_down', function (event) {
         console.log('京东任务脚本停止了')
         console.log('请手动切换回主页面')
-        startCoin && console.log('本次任务开始时有' + startCoin + '快递箱')
+        startCoin && console.log('本次任务开始时有' + startCoin + '刮刮卡')
         quit()
     })
 }
@@ -129,13 +129,13 @@ function openAndInto() {
 
     app.startActivity({
         action: "VIEW",
-        data: 'openApp.jdMobile://virtual?params={"category":"jump","action":"to","des":"m","sourceValue":"JSHOP_SOURCE_VALUE","sourceType":"JSHOP_SOURCE_TYPE","url":"https://u.jd.com/O8g6vvE","M_sourceFrom":"mxz","msf_type":"auto"}'
+        data: 'openApp.jdMobile://virtual?params={"category":"jump","action":"to","des":"m","sourceValue":"JSHOP_SOURCE_VALUE","sourceType":"JSHOP_SOURCE_TYPE","url":"https://pro.m.jd.com/mall/active/3uT8xr7BvwiWmif5m2h9j1zeKgBG/index.html?babelChannel=ttt5&hybrid_err_view=1&commontitle=no&disablePageSticky=1","M_sourceFrom":"mxz","msf_type":"auto"}'
     })
 }
 
-// 获取快递箱数量
+// 获取刮刮卡数量
 function getCoin() {
-    let anchor = text('累计已拆').findOne(5000)
+    let anchor = text('还剩').findOne(5000)
     if (!anchor) {
         console.log('找不到累计控件')
         return false
@@ -151,7 +151,7 @@ function getCoin() {
 // 打开任务列表
 function openTaskList() {
     console.log('打开任务列表')
-    let taskListButton = text('拆快递').findOne(20000)
+    let taskListButton = text('得刮刮卡').findOne(20000)
 
     if (!taskListButton) {
         console.log('无法找到任务列表控件，请参照软件内的说明更换web内核。')
@@ -159,12 +159,12 @@ function openTaskList() {
     }
     taskListButton.click()
     console.log('等待任务列表')
-    if (!findTextDescMatchesTimeout(/.*每做一次任务.*/, 5000)) {
+    if (!idContains('taskContainer').findOne(5000)) {
         console.log('似乎没能打开任务列表，重试')
         taskListButton.click()
     }
 
-    if (!findTextDescMatchesTimeout(/.*每做一次任务.*/, 10000)) {
+    if (!idContains('taskContainer').findOne(5000)) {
         console.log('似乎没能打开任务列表，退出！')
         console.log('如果已经打开而未检测到，请参照软件内的说明更换web内核。')
         quit()
@@ -174,9 +174,9 @@ function openTaskList() {
 // 关闭任务列表
 function closeTaskList() {
     console.log('关闭任务列表')
-    let anchor = findTextDescMatchesTimeout(/.*每做一次任务.*/, 5000)
+    let anchor = idContains('taskContainer').findOne(5000)
     if (!anchor) {
-        console.log('无法找到任务奖励标识')
+        console.log('无法找到任务列表标识')
         return false
     }
 
@@ -192,11 +192,10 @@ function closeTaskList() {
 
 // 重新打开任务列表
 function reopenTaskList() {
-    sleep(3000)
+    sleep(1000)
     closeTaskList()
-    sleep(3000)
+    sleep(500)
     openTaskList()
-    sleep(5000)
 }
 
 // 获取未完成任务，根据数字标识，返回任务按钮、任务介绍、任务数量（数组）
@@ -208,28 +207,27 @@ function getTaskByText() {
     console.log('寻找未完成任务...')
     let anchor = textMatches(/^(去完成|去打卡)$/).findOnce()
     if (anchor) { // 如果找不到任务，直接返回
-        let tasks = anchor.parent().parent().parent().children()
-        tasks.pop()
+        let tasks = anchor.parent().parent().children()
+        // tasks.pop()
+        // console.log(tasks[0].child(2))
 
-        for (let i = 0; i < tasks.length - 2; i += 5) {
-            let task = tasks.slice(i, i + 5)
+        for (let i = 0; i < tasks.length; i++) {
+            let task = tasks[i]
             try {
-                tTitle = task[1].text()
+                tTitle = task.child(1).text()
 
-                let r = task[2].text().match(/(\d*)\/(\d*)/)
+                let r = task.child(2).text().match(/(\d*)\/(\d*)/)
                 if (!r) continue
                 tCount = (r[2] - r[1])
 
-                console.log(tTitle, tCount)
+                // console.log(tTitle, tCount)
 
-                button = task[4]
-                if (!button.child(0).child(0).text().match(/去完成|去领取|去打卡/)) continue
-                // log(tasks)
+                button = task.child(4)
 
                 if (tCount) { // 如果数字相减不为0，证明没完成
-                    tText = task[3].text()
-                    if (!autoJoin && tText.match(/成功入会/)) continue
-                    if (tTitle.match(/下单|小程序|裂变|白条|小游戏|更多好物/) || tText.match(/绑卡/)) continue
+                    tText = task.child(3).text()
+                    if (!autoJoin && tText.match(/入会|成为会员/)) continue
+                    if (tTitle.match(/下单|小程序|裂变|白条|小游戏|更多好物|LBS|PLUS|购买商品|订阅/) || tText.match(/绑卡/)) continue
                     tButton = button
                     break
                 }
@@ -245,10 +243,14 @@ function getTaskByText() {
 
 // 返回任务列表并检查是否成功，不成功重试一次，带有延时
 function backToList() {
+    if (idContains('taskContainer').findOnce()) {
+        console.log('已经在任务列表')
+        return
+    }
     sleep(500)
     back()
     for (let i = 0; i < 5; i++) { // 尝试返回3次
-        if (!findTextDescMatchesTimeout(/.*每做一次任务.*/, 2000)) {
+        if (!idContains('taskContainer').findOne(2000)) {
             console.log('返回失败，重试返回')
             sleep(2000)
             back()
@@ -262,40 +264,41 @@ function backToList() {
 
 // 浏览n秒的任务
 function timeTask() {
-    console.log('等待浏览任务完成...')
-    let c = 0
-    while (c < 60) { // 0.5 * 40 = 20 秒，防止死循环
-        if ((textMatches(/获得.*?快递箱/).exists() || descMatches(/获得.*?快递箱/).exists())) // 等待已完成出现
-            break
-        if ((textMatches(/已.*?浏.*?览/).exists() || descMatches(/已.*?浏.*?览/).exists())) { // 失败
-            console.log('上限，返回刷新任务列表')
-            return false
-        }
-        if ((textMatches(/出.*?错.*?了/).exists() || descMatches(/出.*?错.*?了/).exists())) {
-            console.log('任务出错，返回刷新任务列表')
-            return false
-        }
-        if (textMatches(/.*滑动浏览.*[^可]得.*/).exists()) {
-            console.log('进行模拟滑动')
-            swipe_flag = 1
-            swipe(device.width / 2, device.height - 300, device.width / 2 + 20, device.height - 500, 1000)
-            c = c + 2
-        }
+    console.log('浏览任务8秒后自动返回...')
+    sleep(8000)
+    // let c = 0
+    // while (c < 60) { // 0.5 * 40 = 20 秒，防止死循环
+    //     if ((textMatches(/获得.*?刮刮卡/).exists() || descMatches(/获得.*?刮刮卡/).exists())) // 等待已完成出现
+    //         break
+    //     if ((textMatches(/已.*?浏.*?览/).exists() || descMatches(/已.*?浏.*?览/).exists())) { // 失败
+    //         console.log('上限，返回刷新任务列表')
+    //         return false
+    //     }
+    //     if ((textMatches(/出.*?错.*?了/).exists() || descMatches(/出.*?错.*?了/).exists())) {
+    //         console.log('任务出错，返回刷新任务列表')
+    //         return false
+    //     }
+    //     if (textMatches(/.*滑动浏览.*[^可]得.*/).exists()) {
+    //         console.log('进行模拟滑动')
+    //         swipe_flag = 1
+    //         swipe(device.width / 2, device.height - 300, device.width / 2 + 20, device.height - 500, 1000)
+    //         c = c + 2
+    //     }
 
-        // // 弹窗处理
-        // let pop = text('升级开卡会员领好礼')
-        // if (pop.exists()) {
-        //     pop.findOnce().parent().parent().child(2).click()
-        //     console.log('关闭会员弹窗')
-        // }
+    //     // // 弹窗处理
+    //     // let pop = text('升级开卡会员领好礼')
+    //     // if (pop.exists()) {
+    //     //     pop.findOnce().parent().parent().child(2).click()
+    //     //     console.log('关闭会员弹窗')
+    //     // }
 
-        sleep(500)
-        c++
-    }
-    if (c > 59) {
-        console.log('未检测到任务完成标识。')
-        return false
-    }
+    //     sleep(500)
+    //     c++
+    // }
+    // if (c > 59) {
+    //     console.log('未检测到任务完成标识。')
+    //     return false
+    // }
     console.log('已完成，准备返回')
     return true
 }
@@ -337,11 +340,12 @@ function joinTask() {
             return false
         }
 
-
         if (check.indexInParent() == 2) {
             check = check.parent().child(1)
+        } else if (check.indexInParent() == 0) {
+            check = check.parent().parent().child(0)
         } else {
-            let anchor = textContains('*****').findOnce()
+            let anchor = textContains('****').findOnce()
             check = anchor.parent().child(anchor.indexInParent() + 2)
             if (!check.bounds().top >= anchor.bounds().bottom) {
                 console.log('使用第二种方法获取控件')
@@ -400,6 +404,7 @@ function joinTask() {
             console.log('无法找到入会按钮，失败')
             return false
         }
+        sleep(1000)
         click(j.bounds().centerX(), j.bounds().centerY())
         sleep(1000)
         console.log('入会完成，返回')
@@ -417,7 +422,7 @@ function itemTask(cart) {
     }
     sleep(2000)
 
-    if (anchor.parent().childCount()==4) {
+    if (anchor.parent().childCount() == 4) {
         console.log('任务重复完成，返回')
         return false
     }
@@ -515,9 +520,9 @@ function wallTask() {
 }
 
 // 单个任务的function，自动进入任务、自动返回任务列表，返回boolean
-// TODO: 618 
 function doTask(tButton, tText, tTitle) {
     let clickFlag = tButton.click()
+    // sleep(100);tButton.click();sleep(100);tButton.click() // 可能的阻碍
     let tFlag
 
     if (tButton.text() == '去领取') {
@@ -525,63 +530,71 @@ function doTask(tButton, tText, tTitle) {
         return tFlag
     }
 
-    if (tText.match(/品牌墙/) || tTitle.match(/品牌墙/)) {
-        if (tTitle.match(/浏览更多权益/)) {
-            console.log('简单品牌墙任务，等待10s')
-            sleep(10000)
-            return true
-        }
-        tFlag = wallTask()
-        return tFlag // 品牌墙无需backToList，提前返回
-    } else if (tText.match(/浏览并关注.*s|浏览.*s/)) {
+    // if (tText.match(/品牌墙/) || tTitle.match(/品牌墙/)) {
+    //     if (tTitle.match(/浏览更多权益/)) {
+    //         console.log('简单品牌墙任务，等待10s')
+    //         sleep(10000)
+    //         return true
+    //     }
+    //     tFlag = wallTask()
+    //     return tFlag // 品牌墙无需backToList，提前返回
+    // } else 
+    if (tText.match(/浏览.*秒|s/)) {
         console.log('进行', tText)
         tFlag = timeTask()
-    } else if (tText.match(/累计浏览/)) {
-        console.log('进行累计浏览任务')
-        if (tText.match(/加购/)) {
-            tFlag = itemTask(true)
-        } else {
-            tFlag = itemTask(false)
-        }
-    } else if (tText.match(/入会/)) {
+    }
+    // else if (tText.match(/累计浏览/)) {
+    //     console.log('进行累计浏览任务')
+    //     if (tText.match(/加购/)) {
+    //         tFlag = itemTask(true)
+    //     } else {
+    //         tFlag = itemTask(false)
+    //     }
+    // } 
+    else if (tText.match(/成为会员|加入会员/)) {
+        console.log(tTitle)
         console.log('进行入会任务')
         tFlag = joinTask()
-    } else if (tText.match(/浏览可得|浏览可获得|浏览并关注|晚会|参与/)) {
-        if (tTitle.match(/种草城/)) {
-            tFlag = shopTask()
-        } else {
-            tFlag = viewTask()
-        }
-    } else if (tText.match(/打卡|首页/)) {
-        tFlag = clickFlag // 打卡点击一次即可
-        return tFlag
-    } else if (tText.match(/组队/)) {
-        console.log('等待组队任务')
-        sleep(3000)
-        if (findTextDescMatchesTimeout(/.*每做一次任务.*/, 1000)) {
-            console.log('当前仍在任务列表，说明已经完成任务且领取奖励，返回')
-            return true
-        } else {
-            if (textContains('队伍快递箱').findOne(10000)) {
-                console.log('进入到组队页面，返回')
-                backToList()
-                console.log('等待领取奖励')
-                sleep(2000)
-                tFlag = tButton.click()
-                sleep(2000)
-                return tFlag
-            } else {
-                console.log('未能进入组队')
-                if (findTextDescMatchesTimeout(/.*每做一次任务.*/, 1000)) {
-                    console.log('当前仍在任务列表，返回')
-                    return true
-                } else {
-                    console.log('组队任务未检测到页面标识，视为已完成')
-                    tFlag = false
-                }
-            }
-        }
-    } else {
+    } else if (tText.match(/浏览可得|浏览可获得|晚会|参与|加购|关注/)) {
+        // if (tTitle.match(/种草城/)) {
+        //     tFlag = shopTask()
+        // } else {
+        // tFlag = viewTask()
+        // }
+        console.log(tTitle)
+        tFlag = viewTask()
+    }
+    //  else if (tText.match(/打卡|首页/)) {
+    //     tFlag = clickFlag // 打卡点击一次即可
+    //     return tFlag
+    // } else if (tText.match(/组队/)) {
+    //     console.log('等待组队任务')
+    //     sleep(3000)
+    //     if (idContains('taskContainer').findOne(1000)) {
+    //         console.log('当前仍在任务列表，说明已经完成任务且领取奖励，返回')
+    //         return true
+    //     } else {
+    //         if (textContains('队伍刮刮卡').findOne(10000)) {
+    //             console.log('进入到组队页面，返回')
+    //             backToList()
+    //             console.log('等待领取奖励')
+    //             sleep(2000)
+    //             tFlag = tButton.click()
+    //             sleep(2000)
+    //             return tFlag
+    //         } else {
+    //             console.log('未能进入组队')
+    //             if (idContains('taskContainer').findOne(1000)) {
+    //                 console.log('当前仍在任务列表，返回')
+    //                 return true
+    //             } else {
+    //                 console.log('组队任务未检测到页面标识，视为已完成')
+    //                 tFlag = false
+    //             }
+    //         }
+    //     }
+    // } 
+    else {
         console.log('未知任务类型，默认为浏览任务', tText)
         tFlag = timeTask()
     }
@@ -592,7 +605,7 @@ function doTask(tButton, tText, tTitle) {
 function signTask() {
     console.log('尝试关闭弹窗')
 
-    let anchor = textMatches(/\+\d*快递箱/).findOnce();
+    let anchor = textMatches(/\+\d*刮刮卡/).findOnce();
 
     for (let i = 0; i < 5 && anchor; i++) {
         try {
@@ -603,7 +616,7 @@ function signTask() {
             tmp.click()
             console.log('关闭')
             sleep(1000)
-            anchor = textMatches(/\+\d*快递箱/).findOnce()
+            anchor = textMatches(/\+\d*刮刮卡/).findOnce()
         } catch (err) {
             pass
         }
@@ -643,15 +656,15 @@ function signTask() {
     return sign.click()
 }
 
-// 领取快递箱
+// 领取刮刮卡
 function havestCoin() {
-    console.log('准备领取自动积累的快递箱')
+    console.log('准备领取自动积累的刮刮卡')
     let h = textMatches(/.*点击领取.*|.*后存满.*/).findOne(5000)
     if (h) {
         h.click()
         console.log('领取成功')
         sleep(8000)
-    } else { console.log('未找到快递箱控件，领取失败') }
+    } else { console.log('未找到刮刮卡控件，领取失败') }
 }
 
 // 关闭主页的弹窗
@@ -660,9 +673,9 @@ function closePop() {
     if (!anchor) {
         console.log('寻找关闭弹窗按钮失败')
         return false
-    } 
+    }
     anchor = anchor.parent()
-    return anchor.child(anchor.childCount()-2).click()
+    return anchor.child(anchor.childCount() - 2).click()
 }
 
 let startCoin = null // 音量键需要
@@ -672,19 +685,19 @@ try {
     if (autoOpen) {
         openAndInto()
         console.log('等待活动页面加载')
-        if (!findTextDescMatchesTimeout(/.*快递箱.*/, 8000)) {
+        if (!findTextDescMatchesTimeout(/.*得刮刮卡.*/, 20000)) {
             console.log('未能进入活动，请重新运行！')
             quit()
         }
-        console.log('成功进入活动，向下滑动一段以保证控件全部出现')
+        console.log('成功进入活动')
         sleep(2000)
-        scrollDown();
+        // scrollDown();
 
         openTaskList();
     } else {
         alert('请关闭弹窗后立刻手动打开京东App进入活动页面，并打开任务列表', '限时30秒')
         console.log('请手动打开京东App进入活动页面，并打开任务列表')
-        if (!findTextDescMatchesTimeout(/.*每做一次任务.*|攻略/, 30000)) {
+        if (!idContains('taskContainer').findOne(30000)) {
             console.log('未能进入活动，请重新运行！')
             quit()
         }
@@ -694,11 +707,11 @@ try {
     sleep(5000)
 
     try {
-        console.log('获取初始快递箱数量')
+        console.log('获取初始刮刮卡数量')
         startCoin = getCoin()
-        console.log('当前共有' + startCoin + '快递箱')
+        console.log('当前共有' + startCoin + '刮刮卡')
     } catch (err) {
-        console.log('获取快递箱失败，跳过', err)
+        console.log('获取刮刮卡失败，跳过', err)
     }
 
     // havestCoin()
@@ -721,22 +734,22 @@ try {
             // console.log('最后进行签到任务')
             // let signT = signTask()
 
-            // let endCoin = null
-            // try {
-            //     console.log('获取结束快递箱数量')
-            //     endCoin = getCoin()
-            //     console.log('当前共有' + endCoin + '快递箱')
-            // } catch (err) {
-            //     console.log('获取快递箱失败，跳过', err)
-            // }
+            let endCoin = null
+            try {
+                console.log('获取结束刮刮卡数量')
+                endCoin = getCoin()
+                console.log('当前共有' + endCoin + '刮刮卡')
+            } catch (err) {
+                console.log('获取刮刮卡失败，跳过', err)
+            }
 
             console.log('没有可自动完成的任务了，退出。')
             console.log('互动任务、下单任务需要手动完成。')
-            // if (startCoin && endCoin) {
-            //     console.log('本次运行获得' + (endCoin - startCoin) + '快递箱')
-            // } else {
-            //     console.log('本次运行获得快递箱无法计算，具体原因请翻阅日志。')
-            // }
+            if (startCoin && endCoin) {
+                console.log('本次运行获得' + (endCoin - startCoin) + '刮刮卡')
+            } else {
+                console.log('本次运行获得刮刮卡无法计算，具体原因请翻阅日志。')
+            }
 
             alert('任务已完成', '别忘了在脚本主页领取618红包！')
 
@@ -753,30 +766,34 @@ try {
         }
 
         // 根据taskCount进行任务，一类任务一起完成，完成后刷新任务列表
-        console.log('进行' + taskCount + '次“' + taskText + '”类任务')
-        for (let i = 0; i < taskCount; i++) {
-            console.log('第' + (i + 1) + '次')
-            let taskFlag = doTask(taskButton, taskText, taskTitle)
-            if (text('已放入首页＞记录').exists()) {
-                console.log('关闭奖励弹窗')
-                closePop()
-                sleep(3000)
-            }
-            if (taskFlag) {
-                console.log('完成，进行下一个任务')
-            } else {
-                console.log('任务失败，尝试重新打开任务列表获取任务')
-                break // 直接退出，无需在此调用reopen
-            }
-        }
-        console.log('重新打开任务列表获取任务')
+        // console.log('进行' + taskCount + '次“' + taskText + '”类任务')
+        // for (let i = 0; i < taskCount; i++) {
+        //     console.log('第' + (i + 1) + '次')
+        //     let taskFlag = doTask(taskButton, taskText, taskTitle)
+        //     // if (text('已放入首页＞记录').exists()) {
+        //     //     console.log('关闭奖励弹窗')
+        //     //     closePop()
+        //     //     sleep(3000)
+        //     // }
+        //     if (taskFlag) {
+        //         console.log('完成，进行下一个任务')
+        //         // gesture(1000, [100, 200], [100, 500], [100, 200])
+        //     } else {
+        //         console.log('任务失败，尝试重新打开任务列表获取任务')
+        //         break // 直接退出，无需在此调用reopen
+        //     }
+        // }
+
+        // 不刷新任务列表似乎会无法点击
+        doTask(taskButton, taskText, taskTitle)
+        console.log('重新打开任务列表')
         reopenTaskList()
     }
 } catch (err) {
     device.cancelKeepingAwake()
     if (err.toString() != 'JavaException: com.stardust.autojs.runtime.exception.ScriptInterruptedException: null') {
         console.error(err)
-        startCoin && console.log('本次任务开始时有' + startCoin + '快递箱')
+        startCoin && console.log('本次任务开始时有' + startCoin + '刮刮卡')
     }
     showVersion()
 }
